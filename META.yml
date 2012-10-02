@@ -1,5 +1,5 @@
 ---
-abstract: 'Helper for processing multiple text files in a stream (through a pipe, usually).'
+abstract: 'helper for processing multiple text files in a stream (through a pipe, usually)'
 author:
   - 'Thomas Orgis <thomas@orgis.org>'
 build_requires:
@@ -16,9 +16,9 @@ name: Text-ASCIIPipe
 provides:
   Text::ASCIIPipe:
     file: lib/Text/ASCIIPipe.pm
-    version: 1.000000
+    version: 1.000001
 requires:
   perl: 5.006
 resources:
   license: http://dev.perl.org/licenses/
-version: 1.000000
+version: 1.000001

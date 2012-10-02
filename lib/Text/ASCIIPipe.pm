@@ -6,7 +6,7 @@ package Text::ASCIIPipe;
 use strict;
 # major.minor.bugfix, the latter two with 3 digits each
 # or major.minor_alpha
-our $VERSION = '1.000000';
+our $VERSION = '1.000001';
 $VERSION = eval $VERSION;
 
 
@@ -212,7 +212,7 @@ __END__
 
 =head1 NAME
 
-Text::ASCIIPipe - Helper for processing multiple text files in a stream (through a pipe, usually).
+Text::ASCIIPipe - helper for processing multiple text files in a stream (through a pipe, usually)
 
 =head1 SYNOPSIS
 
@@ -300,7 +300,7 @@ Text::ASCIIPipe - Helper for processing multiple text files in a stream (through
 
 =head1 DESCRIPTION
 
-A lot of the speed penalty of Perl when processing multiple smallish data sets from/to text form consists of the perl compiler startup / script compilation, which accumulates when looping over a set of files. This process can be sped up a lot by keeping the pipe alive and streaming the whole file set through it once. This module helps you with that. Of course, a pipe of several scripts parsing/producing text will still be slower than a custom C program that does the job, but with this trick of avoiding repeated script interpretation/compilation, the margin is a lot smaller.
+A lot of the speed penalty of Perl when processing multiple smallish data sets from/to text form in a shell loop consists of the repeated perl compiler startup / script compilation, which accumulates when looping over a set of files. This process can be sped up a lot by keeping the pipe alive and streaming the whole file set through it once. This module helps you with that. Of course, a pipe of several scripts parsing/producing text will still be slower than a custom C program that does the job, but with this trick of avoiding repeated script interpretation/compilation, the margin is a lot smaller.
 
 When dealing with ASCII-based text files (or UTF-8, if you please), there are some control characters that just make sense for pushing several files as a stream, separated by these characters. These are character codes 2 (STX, start of text), 3 (EOT, end of text) and 4 (ETX, end of transmission).
 All this module does is provide a wrapper for inserting these control characters for the sender and parsing them for the receiver. Nothing fancy, really. I just got fed up writing the same loop over and over again. It works with all textual data that does not contain control characters below decimal code 5.
@@ -362,7 +362,7 @@ Got to figure out if the business about autoflushing is right, and improve it.
 
 =head1 SEE ALSO
 
-This idea is too obvious. There must have been implemented a number of times already. Yet, I did not find an instance of this on CPAN.
+This idea is too obvious. This must have been implemented a number of times already. Yet, I did not find an instance of this on CPAN.
 
 =head1 AUTHOR
 
