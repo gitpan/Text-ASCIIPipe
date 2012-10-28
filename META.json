@@ -33,7 +33,7 @@
    "provides" : {
       "Text::ASCIIPipe" : {
          "file" : "lib/Text/ASCIIPipe.pm",
-         "version" : "1.000001"
+         "version" : "1.001000"
       }
    },
    "release_status" : "stable",
@@ -42,5 +42,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "1.000001"
+   "version" : "1.001000"
 }

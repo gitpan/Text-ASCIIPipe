@@ -6,7 +6,7 @@ package Text::ASCIIPipe;
 use strict;
 # major.minor.bugfix, the latter two with 3 digits each
 # or major.minor_alpha
-our $VERSION = '1.000001';
+our $VERSION = '1.001000';
 $VERSION = eval $VERSION;
 
 
@@ -58,6 +58,7 @@ sub process
 	# The begin function is special because we ensure that the output gets flushed to prevent stalling of the pipe readers.
 	# Function table according to numerical value of state codes.
 	# A handler gets the current line as first in/output argument and the detected line end as second.
+	my $prefilter = defined $arg{pre} ? $arg{pre} : sub {};
 	my @handlers =
 	(
 		 sub {} # 0 is some unknown crap. Ignore.
@@ -78,6 +79,8 @@ sub process
 	);
 
 	my @gotcode; # Need to check if control codes were actually present.
+	my @prearg;
+	push(@prearg, $arg{handle}) if defined $arg{handle};
 	while(defined (my $state = fetch($in, $fline)))
 	{
 		# Store first encountered line end to be used for constructed lines.
@@ -91,36 +94,39 @@ sub process
 		{
 			my $extraline = '';
 			# Trigger begin hook implicitly when just encountering data.
-			&{$handlers[$begin]}($extraline, $lend);
+			&{$handlers[$begin]}(@prearg, $extraline, $lend);
 			print $out $extraline;
 			$gotcode[$begin] = 1;
 		}
 		if($state == $line)
 		{
+			next if &{$prefilter}(@prearg, $fline, $lend);
 			# A line handler shall modify the line.
-			&{$handlers[$state]}($fline, $lend);
+			&{$handlers[$state]}(@prearg, $fline, $lend);
 			print $out $fline if $fline ne '';
 		}
 		else
 		{
 			# Other handlers could generate something.
 			my $extraline = '';
-			&{$handlers[$state]}($extraline, $lend);
+			&{$handlers[$state]}(@prearg, $extraline, $lend);
 			print $out ($state == $begin ? $fline.$extraline : $extraline.$fline);
 		}
 
 		return if($state == $allend);
+		# If we got proper end code, clear records for next file.
+		@gotcode = () if($state == $end);
 	}
-	# Clean up if end markers were not present.
-	if($gotcode[$begin])
+
+	# Make sure that handlers get called even for empty file, or partial transfer with missing end markers.
+	# I wonder if $lend should be simply guessed to "\n".
+	for my $c ($begin,$end,$allend)
 	{
-		for my $c ($end, $allend)
-		{
-			# The handlers are allowed to generate some output.
-			my $extraline = '';
-			&{$handlers[$c]}($extraline, $lend) unless $gotcode[$c];
-			print $out $extraline;
-		}
+		next if $gotcode[$c];
+		# The handlers are allowed to generate some output.
+		my $extraline = '';
+		&{$handlers[$c]}(@prearg, $extraline, $lend);
+		print $out $extraline;
 	}
 }
 
@@ -138,10 +144,8 @@ sub pull_file
 	$to   = \*STDOUT unless defined $to;
 	my $payload;
 	my $state;
-	my $fetches = 0;
 	while(defined ($state = fetch($from, $payload)))
 	{
-		++$fetches;
 		next if $state == $begin;
 		last if $state != $line;
 		print $to $payload;
@@ -237,10 +241,17 @@ Text::ASCIIPipe - helper for processing multiple text files in a stream (through
 	# Bare usage without callback hooks, using STDIN.
 	while(defined (my $state = Text::ASCIIPipe::fetch(undef, $line)))
 	{
-		line_hook($line)   if ($state == $Text::ASCIIPipe::line);
-		begin_hook($line)  if ($state == $Text::ASCIIPipe::begin);
-		end_hook($line)    if ($state == $Text::ASCIIPipe::end);
-		allend_hook($line) if ($state == $Text::ASCIIPipe::allend);
+		if ($state == $Text::ASCIIPipe::line)
+		{
+			next if prefilter_hook($line);
+			line_hook($line);
+		}
+		else
+		{
+			begin_hook($line)  if ($state == $Text::ASCIIPipe::begin);
+			end_hook($line)    if ($state == $Text::ASCIIPipe::end);
+			allend_hook($line) if ($state == $Text::ASCIIPipe::allend);
+		}
 		print $line;
 		# End of transmission is not exactly the same as stream end.
 		# But mostly so.
@@ -264,6 +275,7 @@ Text::ASCIIPipe - helper for processing multiple text files in a stream (through
 	(
 		 in     => $fh
 		,out    => \*STDOUT # or undef, or some other file
+		,pre    => \&prefilter_hook
 		,begin  => \&begin_hook
 		,line   => \&line_hook
 		,end    => \&end_hook
@@ -297,6 +309,18 @@ Text::ASCIIPipe - helper for processing multiple text files in a stream (through
 	# Just closing the sink does the  trick, too.
 	Text::ASCIIPipe::done($to);
 
+	# If you wrap your stuff into an objet, you can provide its instance
+	# as context and have the handlers work as methods on this.
+	Text::ASCIIPipe::process
+	(
+		,handle => $my_object_instance
+		# The hooks are methods of the above!
+		# (or just any sub that wants it as first argument)
+		,begin  => \&begin_hook
+		,line   => \&line_hook
+		,end    => \&end_hook
+		,allend => \&allend_hook
+	);
 
 =head1 DESCRIPTION
 
@@ -306,6 +330,13 @@ When dealing with ASCII-based text files (or UTF-8, if you please), there are so
 All this module does is provide a wrapper for inserting these control characters for the sender and parsing them for the receiver. Nothing fancy, really. I just got fed up writing the same loop over and over again. It works with all textual data that does not contain control characters below decimal code 5.
 
 The process() function itself tries to employ a bit of smartness regarding buffering of the output. Since the actual operation of multiple ASCIIPipe-using programs in a, well, pipe, might conflict with the default buffering of the output stream (STDOUT), process() disables buffering on the output whenever it encounters the first STX. This mirrors the code this module has been pulled from: It made sense there, enabling the last consumer in the pipe to get the end of a file in time and act on that information. This behaviour can be turned off by giving flush=>0 as parameter.
+
+The callback hooks get handed in the optional configured handle and, as primary argument, the current line to process. Also, the current line end is given as following argument to help constructing additional lines properly, if you wish to do so:
+
+	sub hook
+	{
+		$_[0] .= 'appended another line with proper ending'.$_[1];
+	}
 
 =head1 FUNCTIONS
 

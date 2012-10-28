@@ -16,9 +16,9 @@ name: Text-ASCIIPipe
 provides:
   Text::ASCIIPipe:
     file: lib/Text/ASCIIPipe.pm
-    version: 1.000001
+    version: 1.001000
 requires:
   perl: 5.006
 resources:
   license: http://dev.perl.org/licenses/
-version: 1.000001
+version: 1.001000
